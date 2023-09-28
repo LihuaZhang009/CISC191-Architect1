@@ -1,52 +1,90 @@
 package edu.sdccd.cisc191.template;
 
-import java.net.*;
-import java.io.*;
+import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.GridPane;
+import javafx.scene.text.Text;
+import javafx.stage.Stage;
 
-/**
- * This program is a server that takes connection requests on
- * the port specified by the constant LISTENING_PORT.  When a
- * connection is opened, the program sends the current time to
- * the connected socket.  The program will continue to receive
- * and process connections until it is killed (by a CONTROL-C,
- * for example).  Note that this server processes each connection
- * as it is received, rather than creating a separate thread
- * to process the connection.
- */
-public class Server {
-    private ServerSocket serverSocket;
-    private Socket clientSocket;
-    private PrintWriter out;
-    private BufferedReader in;
+import edu.sdccd.cisc191.matrix.*;
+import edu.sdccd.cisc191.linalg.*;
 
-    public void start(int port) throws Exception {
-        serverSocket = new ServerSocket(port);
-        clientSocket = serverSocket.accept();
-        out = new PrintWriter(clientSocket.getOutputStream(), true);
-        in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+public class Server extends Application {
 
-        String inputLine;
-        while ((inputLine = in.readLine()) != null) {
-            CustomerRequest request = CustomerRequest.fromJSON(inputLine);
-            CustomerResponse response = new CustomerResponse(request.getId(), "Jane", "Doe");
-            out.println(CustomerResponse.toJSON(response));
+    @Override
+    public void start(Stage primaryStage) {
+
+        int rows = 3;
+        int columns = 3;
+
+        GridPane gridPane = new GridPane();
+        gridPane.setHgap(10);
+        gridPane.setVgap(10);
+        gridPane.setPadding(new Insets(10, 10, 10, 10));
+
+        TextField[][] matrixInputs = new TextField[rows][columns];
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < columns; j++) {
+                TextField field = new TextField();
+                field.setPrefWidth(50);
+                gridPane.add(field, j, i);
+                matrixInputs[i][j] = field;
+            }
         }
-    }
 
-    public void stop() throws IOException {
-        in.close();
-        out.close();
-        clientSocket.close();
-        serverSocket.close();
+        TextField[] vectorInputs = new TextField[rows];
+        for (int i = 0; i < rows; i++) {
+            TextField field = new TextField();
+            field.setPrefWidth(50);
+            gridPane.add(field, columns, i);
+            vectorInputs[i] = field;
+        }
+
+        Button solveButton = new Button("Solve");
+        Text solutionText = new Text();
+        gridPane.add(solveButton, columns + 1, 0);
+        gridPane.add(solutionText, columns + 1, 1, 1, rows - 1);
+
+        solveButton.setOnAction(e -> {
+            Double[][] matrixA = new Double[rows][columns];
+            Double[][] vectorB = new Double[rows][1];
+
+            try {
+                for (int i = 0; i < rows; i++) {
+                    for (int j = 0; j < columns; j++) {
+                        matrixA[i][j] = Double.parseDouble(matrixInputs[i][j].getText());
+                    }
+                    vectorB[i][0] = Double.parseDouble(vectorInputs[i].getText());
+                }
+
+                Matrix A = new Matrix(matrixA);
+                Matrix b = new Matrix(vectorB);
+
+                try {
+                    Matrix x = LinSystem.solveSystem(A, b);
+                    solutionText.setText(x.toString());
+                } catch (Exception ex) {
+                    solutionText.setText(ex.getMessage());
+                }
+
+            } catch (NumberFormatException ex) {
+                solutionText.setText("Invalid input. Please enter valid numbers.");
+            }
+
+        });
+
+        // Set the scene and stage
+        Scene scene = new Scene(gridPane);
+        primaryStage.setScene(scene);
+        primaryStage.setTitle("Matrix Solver");
+        primaryStage.show();
     }
 
     public static void main(String[] args) {
-        Server server = new Server();
-        try {
-            server.start(4444);
-            server.stop();
-        } catch(Exception e) {
-            e.printStackTrace();
-        }
+        launch(args);
     }
-} //end class Server
+
+}
